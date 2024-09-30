@@ -13,6 +13,6 @@ GPIO3 and gnd to push button2
 
 GPIO4 to pilote relay module
 
-and 220V to power suppli and from its output 5v to esp32 GPIO: 5V and GND
+and 220V to power supply and from its output 5v to esp32 GPIO: 5V and GND
 
 flash esphome on ESP32 and copy/paste or add config files on klipper files, restart 3D printer and you're ON!
