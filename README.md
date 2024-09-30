@@ -11,7 +11,7 @@ GPIO2 and gnd to push button1
 
 GPIO3 and gnd to push button2
 
-GPIO4 to pilote relay module
+GPIO4 (5V and GND) to relay module to pilote it
 
 and 220V to power supply and from its output 5v to esp32 GPIO: 5V and GND
 
