@@ -99,7 +99,12 @@ text_sensor:
   - platform: template
     name: "Stato Stampante 3D"
     id: stato_stampante
-
+    
+sensor:
+  - platform: template
+    name: "percentuale di stampa"
+    id: percentuale
+    
 interval:
   - interval: 3sec
     then:
@@ -336,6 +341,9 @@ script:
                   const char* result_status_print_stats_state = result_status["state"]; // "standby"
                   id(stato_stampante).publish_state(result_status_print_stats_state);
                   ESP_LOGD("main", "stauts: %s", result_status_print_stats_state);
+                  JsonObject result_status_virtual_sdcard = result_status["virtual_sdcard"];
+                  double result_status_virtual_sdcard_progress = result_status_virtual_sdcard["progress"];
+                  id(percentuale).publish_state(result_status_virtual_sdcard_progress*100 );
                   return true;
                   });
  
