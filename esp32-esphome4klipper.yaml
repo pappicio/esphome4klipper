@@ -116,7 +116,7 @@ interval:
           id(klipperON).publish_state(-1);
           
       - script.execute: checkurl
-      - script.wait: checkurl
+      ###- script.wait: checkurl
       - if:
               condition:
                 - lambda: |-
