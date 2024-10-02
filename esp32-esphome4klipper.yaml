@@ -103,10 +103,8 @@ text_sensor:
   - platform: wifi_info
     ssid:
       name: "wifi connesso a:"
+      
 sensor:
-  - platform: template
-    name: "percentuale di stampa"
-    id: percentuale
   - platform: wifi_signal
     name: "Segnale WiFi"
     update_interval: 10s
@@ -346,11 +344,40 @@ script:
                   call.perform();
                   JsonObject result_status = doc["result"]["status"]["print_stats"];
                   const char* result_status_print_stats_state = result_status["state"]; // "standby"
-                  id(stato_stampante).publish_state(result_status_print_stats_state);
                   ESP_LOGD("main", "stauts: %s", result_status_print_stats_state);
                   JsonObject result_status_virtual_sdcard = doc["result"]["status"]["virtual_sdcard"];
                   double result_status_virtual_sdcard_progress = result_status_virtual_sdcard["progress"];
-                  id(percentuale).publish_state(result_status_virtual_sdcard_progress*100 );
+                  if (strcmp(result_status_print_stats_state, "printing") == 0)
+                  {
+                  JsonObject layers = doc["result"]["status"]["print_stats"]["info"];
+                  int layerx = layers["current_layer"];
+                  int layert = layers["total_layer"];
+                  char lx[5];
+                  dtostrf(layerx, 1, 0, lx);
+                  char lt[5];
+                  dtostrf(layert, 1, 0, lt);
+                  //DOUBLE TO CHAR ARRAY (char*)
+                  double percento=(result_status_virtual_sdcard_progress * 100 );
+                  char buf[5];
+                  dtostrf(percento, 5, 1, buf);
+                  ////////////////////////////////////////////////////
+                  //Concatenate char arrays (char*) on unique char array (char*)
+                  char out[50];
+                  strcpy(out ,result_status_print_stats_state);
+                  strcat(out, ": ");
+                  strcat(out ,buf);
+                  strcat(out ,"% - ");
+                  strcat(out ,lx);
+                  strcat(out ," di ");
+                  strcat(out ,lt);
+                  strcat(out ," layers");
+                  ////////////////////////////////////////////////////
+                  id(stato_stampante).publish_state(out);
+                  }
+                  else
+                  {
+                  id(stato_stampante).publish_state(result_status_print_stats_state);
+                  }
                   return true;
                   });
            
