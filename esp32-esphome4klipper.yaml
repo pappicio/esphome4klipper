@@ -112,11 +112,11 @@ sensor:
 interval:
   - interval: 3sec
     then:
-      - number.set:
-          id: klipperON
-          value: -1
+      - lambda: |-
+          id(klipperON).publish_state(-1);
+          
       - script.execute: checkurl
-      #- script.wait: checkurl
+      - script.wait: checkurl
       - if:
               condition:
                 - lambda: |-
