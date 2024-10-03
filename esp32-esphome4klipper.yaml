@@ -35,10 +35,10 @@ improv_serial:
 
 wifi:
   networks:
-    - ssid: SSIDNAME1
-    - password: password1
-    - ssid: SSIDNAME2
-    - password: password2
+    - ssid: peppe2
+    - password: !secret wifi_password2
+    - ssid: peppe1
+    - password: !secret wifi_password1
    
   manual_ip:
     static_ip: 192.168.1.94
@@ -64,10 +64,11 @@ esp32_improv:
   authorizer: none
 
 # To have a "next url" for improv serial
+
 web_server:
+  version: 3
 
 http_request:
-   
   id: httpget
   useragent: esphome/device
   verify_ssl: false
@@ -91,7 +92,6 @@ number:
     optimistic: true 
     restore_value: false
     min_value: -1
-    #max ovrebbe essere 59, max 60, ma visto che si incrementa di 10 potrebbe essere anche 69, anche 70.....
     max_value: 1
     step: 1
     initial_value: -1
@@ -99,32 +99,40 @@ number:
 text_sensor:
   - platform: template
     name: "Stato Stampante 3D"
+    web_server_sorting_weight: 0
     id: stato_stampante
+
+  - platform: template
+    name: "Filename:"
+    web_server_sorting_weight: 1
+    id: file_name
+
   - platform: wifi_info
     ssid:
       name: "wifi connesso a:"
-      
+      web_server_sorting_weight: 7
 sensor:
   - platform: wifi_signal
     name: "Segnale WiFi"
+    web_server_sorting_weight: 8
     update_interval: 10s
-    
+
 interval:
   - interval: 3sec
     then:
       - lambda: |-
           id(klipperON).publish_state(-1);
-          
+
       - script.execute: checkurl
-      ###- script.wait: checkurl
+      #- script.wait: checkurl
       - if:
-              condition:
-                - lambda: |-
-                    return (id(klipperON).state == 0 )  ;
-              then:           
-              else: 
-                - lambda: |-
-                    id(stato_stampante).publish_state("spenta...");
+          condition:
+            - lambda: |-
+                return (id(klipperON).state == 0 )  ;
+          then:           
+          else: 
+            - lambda: |-
+                id(stato_stampante).publish_state("spenta...");
     
 
 switch:
@@ -147,6 +155,7 @@ switch:
                   
   - platform: template
     name: "accendi stampante 3D"
+    web_server_sorting_weight: 2
     id: turnON
     optimistic: true
     lambda: return id(turnON).state;  
@@ -160,6 +169,7 @@ switch:
       
   - platform: template
     name: "spegni stampante 3D"
+    web_server_sorting_weight: 3
     id: turnOFF
     optimistic: true
     lambda: return id(turnOFF).state;  
@@ -172,10 +182,8 @@ switch:
           then:
             - lambda: |- 
                 id(incorso) = false;
-            - number.set:
-                id: klipperON
-                value: -1
-            
+                id(klipperON).publish_state(-1);
+
             - script.execute: spegnila
             - script.wait: spegnila
             - if:
@@ -193,6 +201,7 @@ switch:
 
   - platform: template
     name: "Spegni in emergenza"
+    web_server_sorting_weight: 4
     id: forceTurnOFF
     optimistic: true
     lambda: return id(forceTurnOFF).state;  
@@ -203,27 +212,29 @@ switch:
       - text_sensor.template.publish:
           id: stato_stampante
           state: "spenta..."
-  - platform: template
-    name: "test"
-    internal: true
-    id: test
-    optimistic: true
-    lambda: return id(test).state;  
-    on_turn_on:
-      - delay: 500ms
-      - switch.turn_off: test 
-      - lambda: |-
-          HTTPClient http;
-          http.begin("http://KLIPPER_IP/printer/info");
-          http.GET();
-          id(azz1) = int(http.getString()[6]);
-          //id(kitchen_state) = http.getString()[36] == 'n';
-          http.end();
-          ESP_LOGD("main", "Response char1: %d", id(azz1));
+
+  #- platform: template
+  #  name: "test"
+  #  internal: true
+  #  id: test
+  #  optimistic: true
+  #  lambda: return id(test).state;  
+  #  on_turn_on:
+  #    - delay: 500ms
+  #    - switch.turn_off: test 
+  #    - lambda: |-
+  #        HTTPClient http;
+  #        http.begin("http://KLIPPER_IP/printer/info");
+  #        http.GET();
+  #        id(azz1) = int(http.getString()[6]);
+  #        //id(kitchen_state) = http.getString()[36] == 'n';
+  #        http.end();
+  #        ESP_LOGD("main", "Response char1: %d", id(azz1));
           
   - platform: template
     internal: true
     name: "spegnimento in corso"
+    web_server_sorting_weight: 6
     id: spegnitimer
     optimistic: true
     lambda: return id(spegnitimer).state;  
@@ -251,11 +262,11 @@ switch:
       - lambda: |-
           id(incorso) = false ;     
 
-
 binary_sensor:
   - platform: template
     id: sensore_accesa
     name: 'Stampante 3D Accesa:'
+    web_server_sorting_weight: 5
     publish_initial_state: True
     lambda: return (id(relay).state);
 
@@ -265,9 +276,6 @@ binary_sensor:
     publish_initial_state: True
     lambda: return (id(spegnitimer).state);
  
-
- #tasto fisico per spegnimento emergenza stampante 3D 
- #connesso a GND, quindi in pullup
   - platform: gpio
     internal: true
     pin:
@@ -286,8 +294,6 @@ binary_sensor:
       then:
         - switch.turn_off: relay
 
-#tasto fisico per spegnimento programmato (fine stampa se estrusore < 50 gradi C.) stampante 3D 
- #connesso a GND, quindi in pullup
   - platform: gpio
     internal: true
     pin:
@@ -312,22 +318,24 @@ binary_sensor:
               - switch.turn_on: turnOFF
             else:
               - switch.turn_on: relay
+
 script:
   - id: spegnila
     then:
       - http_request.get:
-                url: "http://KLIPPER_IP/printer/gcode/script?script=spegnistampante"
-                capture_response: true
-                on_response:
-                  then:
-                    - lambda: |-
-                        json::parse_json(body, [](JsonObject root) -> bool {
-                        id(klipperON).publish_state(root["result"]);
-                        auto call = id(klipperON).make_call();
-                        call.set_value((root["result"]));
-                        call.perform();
-                        return true;
-                        });
+          url: "http://KLIPPER_IP/printer/gcode/script?script=spegnistampante"
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  json::parse_json(body, [](JsonObject root) -> bool {
+                  id(klipperON).publish_state(root["result"]);
+                  auto call = id(klipperON).make_call();
+                  call.set_value((root["result"]));
+                  call.perform();
+                  return true;
+                  });
+
   - id: checkurl
     then:
       - http_request.get:
@@ -344,6 +352,7 @@ script:
                   {
                   JsonObject result_status = doc["result"]["status"]["print_stats"];
                   const char* result_status_print_stats_state = result_status["state"]; // "standby"
+                  const char* filename = result_status["filemane"]; // "standby"
                   //id(stato_stampante).publish_state(result_status_print_stats_state);
                   ESP_LOGD("main", "stauts: %s", result_status_print_stats_state);
                   JsonObject result_status_virtual_sdcard = doc["result"]["status"]["virtual_sdcard"];
@@ -352,6 +361,7 @@ script:
                   //result_status_print_stats_state="printing";
                   if (strcmp(result_status_print_stats_state, "printing") == 0)
                   {
+                  id(file_name).publish_state(filename);
                   JsonObject layers = doc["result"]["status"]["print_stats"]["info"];
                   int layerx = layers["current_layer"];
                   int layert = layers["total_layer"];
