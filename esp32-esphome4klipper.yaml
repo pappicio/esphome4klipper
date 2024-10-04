@@ -367,18 +367,18 @@ script:
                   int layert = layers["total_layer"];
                   //layert=77;
                   //layerx=1;
-                  char lx[5];
-                  dtostrf(layerx, 1, 0, lx);
+                  char lx[7];
+                  dtostrf(layerx, 5, 0, lx);
                   char lt[5];
-                  dtostrf(layert, 1, 0, lt);
+                  dtostrf(layert, 5, 0, lt);
                   //DOUBLE TO CHAR ARRAY (char*)
                   double percento=(result_status_virtual_sdcard_progress * 100 );
                   //percento=10.5;
-                  char buf[5];
+                  char buf[7];
                   dtostrf(percento, 5, 1, buf);
                   ////////////////////////////////////////////////////
                   //Concatenate char arrays (char*) on unique char array (char*)
-                  char out[50];
+                  char out[100];
                   strcpy(out ,result_status_print_stats_state);
                   strcat(out, ": ");
                   strcat(out ,buf);
@@ -398,4 +398,5 @@ script:
                   });
 
            
+
 
