@@ -24,12 +24,6 @@ GPIO35 turn ON/OFF safety 3d printer push button
 
 GPIO37 multiplug turn ON/OFF push Button
 
-
-
-GPIO3 and gnd to push button2
-
-GPIO4 (5V and GND) to relay module to pilote it
-
 and 220V to power supply and from its output 5v to esp32 GPIO: 5V and GND
 
 flash esphome on ESP32 and copy/paste or add config files on klipper files, restart 3D printer and you're ON!
