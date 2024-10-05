@@ -1,38 +1,28 @@
-substitutions:
-  name: esphome-web-f8a6fc
-  friendly_name: stampante 3D
+
 
 esphome:
-  name: ${name}
-  friendly_name: ${friendly_name}
-  min_version: 2024.6.0
-  name_add_mac_suffix: false
-  project:
-    name: esphome.web
-    version: dev
+  name: 3d-presa
+  friendly_name: 3d-presa
 
-  on_boot:
-    priority: -100
-    then:
-  
 esp32:
-  board: esp32-c3-devkitm-1
+  board: esp32-s2-saola-1
   framework:
     type: arduino
+
+
 
 # Enable logging
 logger:
 
 # Enable Home Assistant API
 api:
+ 
 
-# Allow Over-The-Air updates
 ota:
-  platform: esphome
+  - platform: esphome
+    
 
-# Allow provisioning Wi-Fi via serial
 improv_serial:
-
 wifi:
   networks:
     - ssid: peppe2
@@ -40,6 +30,8 @@ wifi:
     - ssid: peppe1
     - password: !secret wifi_password1
    
+   
+      # Optional manual IP
   manual_ip:
     static_ip: 192.168.1.94
     gateway: 192.168.1.1
@@ -48,20 +40,8 @@ wifi:
 
   ap:
     {}
- 
 
-# In combination with the `ap` this allows the user
-# to provision wifi credentials to the device via WiFi AP.
 captive_portal:
-
-dashboard_import:
-  package_import_url: github://esphome/firmware/esphome-web/esp32c3.yaml@main
-  import_full_config: true
- 
-# Sets up Bluetooth LE (Only on ESP32) to allow the user
-# to provision wifi credentials to the device.
-esp32_improv:
-  authorizer: none
 
 # To have a "next url" for improv serial
 
@@ -73,17 +53,19 @@ http_request:
   useragent: esphome/device
   verify_ssl: false
   timeout: 
-    seconds: 2
+    seconds: 1
 
 globals:
   - id: incorso
     type: boolean
+
   - id: isrelayON
     type: boolean
     restore_value: false
-  - id: azz1
-    type: int
 
+  - id: inspegnimento
+    type: boolean
+    initial_value: "false"
 number:
   - platform: template
     internal: true
@@ -102,6 +84,7 @@ text_sensor:
     web_server_sorting_weight: 0
     id: stato_stampante
 
+
   - platform: wifi_info
     ssid:
       name: "wifi connesso a:"
@@ -112,42 +95,106 @@ sensor:
     web_server_sorting_weight: 8
     update_interval: 10s
 
+
+ 
+output:
+  - platform: ledc
+    pin: GPIO40
+    id: led_3d
+
+  - platform: ledc
+    pin: GPIO38
+    id: led_presa
+    
 interval:
-  - interval: 3sec
+  - interval: 500ms
+    then:
+      - if:
+          condition:
+            - lambda: |-
+                return (id(inspegnimento) ==true);
+          then:
+            - output.turn_on: led_3d
+            - delay: 250ms
+            - output.turn_off: led_3d
+
+
+
+
+  - interval: 1000ms
     then:
       - lambda: |-
-          id(klipperON).publish_state(-1);
+          digitalWrite(15, !digitalRead(15));
+     
+  - interval: 3sec
+    then:
+      - if:
+          condition:
+            - lambda: |-
+                return (id(klipperON).state == 0 )  ;
+          then:                
+            - lambda: |-
+                id(klipperON).publish_state(-1);
 
       - script.execute: checkurl
       #- script.wait: checkurl
       - if:
           condition:
             - lambda: |-
-                return (id(klipperON).state == 0 )  ;
-          then:           
+                return (id(klipperON).state == -1 )  ;
+          then: 
+             - lambda: |-
+                id(stato_stampante).publish_state("spenta...");          
           else: 
-            - lambda: |-
-                id(stato_stampante).publish_state("spenta...");
-    
+ 
 
 switch:
+  - platform: gpio
+    internal: true
+    name: "led"
+    id: led
+    inverted: true
+    pin: GPIO15
+
   - platform: gpio
     internal: true
     restore_mode: RESTORE_DEFAULT_OFF 
     name: "Relay"
     id: relay
-    pin: GPIO04
+    pin: GPIO34
+    inverted: true
     on_turn_on:
+      - switch.turn_on: led
+      - output.turn_on: led_3d 
       - globals.set:
           id: isrelayON
           value: "true"
       - logger.log: "var=true"
     on_turn_off: 
+      - switch.turn_off: led
+      - output.turn_off: led_3d 
       - globals.set:
           id: isrelayON
           value: "false"
       - logger.log: "var=false"
-                  
+
+  - platform: gpio
+    #internal: true
+    restore_mode: RESTORE_DEFAULT_OFF 
+    name: "presa laboratorio"
+    id: presa_laboratorio
+    pin: GPIO36
+    inverted: true
+    on_turn_on:
+      - switch.turn_on: led
+      - output.turn_on: led_presa 
+     
+    on_turn_off: 
+      - switch.turn_off: led
+      - output.turn_off: led_presa 
+ 
+ 
+
   - platform: template
     name: "accendi stampante 3D"
     web_server_sorting_weight: 2
@@ -187,7 +234,20 @@ switch:
                       return (id(klipperON).state == 0 )  ;
                 then:   
                   #- binary_sensor.turn_on: sensore_spegnimento 
-                  - logger.log: "Invio comando procedura spegnimento stampante 3D in corso..."      
+                  - logger.log: "Invio comando procedura spegnimento stampante 3D in corso..."
+                  - if:
+                      condition:
+                        - lambda: |-
+                            return (id(inspegnimento) ==false);
+                      then:
+                        - globals.set:
+                            id: inspegnimento
+                            value: "true"
+                      else:
+                        - globals.set:
+                            id: inspegnimento
+                            value: "false"
+                        - output.turn_on: led_3d 
                   #- lambda: |-
                   #    ESP_LOGD("main", "response: %d", id(klipperON).state);             
                 else: 
@@ -229,12 +289,21 @@ switch:
   - platform: template
     internal: true
     name: "spegnimento in corso"
-    web_server_sorting_weight: 6
+    web_server_sorting_weight: 5
     id: spegnitimer
     optimistic: true
     lambda: return id(spegnitimer).state;  
     on_turn_on:
-       - if:
+      - if:
+          condition:
+            - lambda: |-
+                return (id(inspegnimento) ==true);
+          then:
+            - globals.set:
+                id: inspegnimento
+                value: "false"
+         
+      - if:
           condition:
               lambda: |-
                 return id(incorso) == false ;     
@@ -261,9 +330,11 @@ binary_sensor:
   - platform: template
     id: sensore_accesa
     name: 'Stampante 3D Accesa:'
-    web_server_sorting_weight: 5
+    web_server_sorting_weight: 6
     publish_initial_state: True
     lambda: return (id(relay).state);
+
+ 
 
   - platform: template
     id: sensore_spegnimento
@@ -274,17 +345,18 @@ binary_sensor:
   - platform: gpio
     internal: true
     pin:
-      number: GPIO2
+      number: GPIO39
       mode:
         input: true
         pullup: true
       inverted: true
     name: emergenza
     id: emergenza
-    filters:
-      - delayed_off: 49ms
+    #filters:
+    #  - delayed_off: 9ms
     on_click:
-    - min_length: 50ms
+    - min_length: 99ms
+      max_length: 999ms
       #click breve
       then:
         - switch.turn_off: relay
@@ -292,18 +364,18 @@ binary_sensor:
   - platform: gpio
     internal: true
     pin:
-      number: GPIO3
+      number: GPIO35
       mode:
         input: true
         pullup: true
       inverted: true
     name: spegni
     id: spegni
-    filters:
-      - delayed_off: 149ms
+    #filters:
+    #  - delayed_off: 9ms
     on_click:
-    - min_length: 150ms
-    #  max_length: 499ms
+    - min_length: 99ms
+      max_length: 999ms
       #click breve
       then:
         - if:
@@ -313,6 +385,25 @@ binary_sensor:
               - switch.turn_on: turnOFF
             else:
               - switch.turn_on: relay
+
+  - platform: gpio
+    internal: true
+    pin:
+      number: GPIO37
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    name: presa
+    id: presa
+    on_click:
+    - min_length: 99ms
+      max_length: 999ms
+      #click breve
+      then:
+        - switch.toggle: presa_laboratorio
+
+
 
 script:
   - id: spegnila
@@ -324,10 +415,7 @@ script:
             then:
               - lambda: |-
                   json::parse_json(body, [](JsonObject root) -> bool {
-                  id(klipperON).publish_state(root["result"]);
-                  auto call = id(klipperON).make_call();
-                  call.set_value((root["result"]));
-                  call.perform();
+                  id(klipperON).publish_state(0);
                   return true;
                   });
 
@@ -346,25 +434,27 @@ script:
                   json::parse_json(body, [](JsonObject doc) -> bool 
                   {
                   JsonObject result_status = doc["result"]["status"]["print_stats"];
+                  JsonObject layers = doc["result"]["status"]["print_stats"]["info"];
                   const char* result_status_print_stats_state = result_status["state"]; // "standby"
                   //const char* filename = result_status["filemane"]; // "standby"
                   //id(stato_stampante).publish_state(result_status_print_stats_state);
                   ESP_LOGD("main", "stauts: %s", result_status_print_stats_state);
                   JsonObject result_status_virtual_sdcard = doc["result"]["status"]["virtual_sdcard"];
                   double result_status_virtual_sdcard_progress = result_status_virtual_sdcard["progress"];
+                  //id(percentuale).publish_state(result_status_virtual_sdcard_progress*100 );
+
                   //result_status_print_stats_state="printing";
                   if (strcmp(result_status_print_stats_state, "printing") == 0)
                   {
                   //id(file_name).publish_state(filename);
-                  JsonObject layers = doc["result"]["status"]["print_stats"]["info"];
-                  int layerx = layers["current_layer"];
-                  int layert = layers["total_layer"];
+                  double layerx = layers["current_layer"];
+                  double layert = layers["total_layer"];
                   //layert=77;
                   //layerx=1;
-                  char lx[7];
-                  dtostrf(layerx, 5, 0, lx);
+                  char lx[5];
+                  dtostrf(layerx, 1, 0, lx);
                   char lt[5];
-                  dtostrf(layert, 5, 0, lt);
+                  dtostrf(layert, 1, 0, lt);
                   //DOUBLE TO CHAR ARRAY (char*)
                   double percento=(result_status_virtual_sdcard_progress * 100 );
                   //percento=10.5;
@@ -394,3 +484,5 @@ script:
            
 
 
+
+ 
