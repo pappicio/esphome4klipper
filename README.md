@@ -2,7 +2,7 @@
 
 project to connect esphome relay module to power.ON/OFF, emergency shutdown 3D printer running klipper
 
-you need: esp32/esp8266 (at moment ESP32 S2 s used!), a relay module (2 relay module at moment), a (110/220V25V) micro poersupply, a case and 2 push buttons
+you need: esp32/esp8266 (at moment ESP32 S2 is used!), a relay module (2 relay module at moment), a (110/220V25V) micro poersupply, a case and 2 push buttons
 
 you need connect wires to your esp32:
 
