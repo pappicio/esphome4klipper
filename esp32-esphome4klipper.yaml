@@ -9,19 +9,15 @@ esp32:
   framework:
     type: arduino
 
-
-
 # Enable logging
 logger:
 
 # Enable Home Assistant API
 api:
- 
 
 ota:
   - platform: esphome
     
-
 improv_serial:
 wifi:
   networks:
@@ -30,10 +26,9 @@ wifi:
     - ssid: peppe1
     - password: !secret wifi_password1
    
-   
       # Optional manual IP
   manual_ip:
-    static_ip: 192.168.1.94
+    static_ip: 192.168.1.89
     gateway: 192.168.1.1
     subnet: 255.255.255.0
     dns1: 192.168.1.1
@@ -63,9 +58,6 @@ globals:
     type: boolean
     restore_value: false
 
-  - id: inspegnimento
-    type: boolean
-    initial_value: "false"
 number:
   - platform: template
     internal: true
@@ -77,6 +69,17 @@ number:
     max_value: 1
     step: 1
     initial_value: -1
+  - platform: template 
+    internal: true
+    id: inspegnimento
+    name: "inspegnimento"
+    optimistic: true 
+    restore_value: false
+    min_value: 0
+    max_value: 1
+    step: 1
+    initial_value: 0
+
 
 text_sensor:
   - platform: template
@@ -84,19 +87,17 @@ text_sensor:
     web_server_sorting_weight: 0
     id: stato_stampante
 
-
   - platform: wifi_info
     ssid:
       name: "wifi connesso a:"
       web_server_sorting_weight: 7
+
 sensor:
   - platform: wifi_signal
     name: "Segnale WiFi"
     web_server_sorting_weight: 8
     update_interval: 10s
 
-
- 
 output:
   - platform: ledc
     pin: GPIO40
@@ -105,20 +106,27 @@ output:
   - platform: ledc
     pin: GPIO38
     id: led_presa
-    
+
+#http://192.168.1.89/number/inspegnimento/set?value=1
 interval:
   - interval: 500ms
     then:
       - if:
           condition:
             - lambda: |-
-                return (id(inspegnimento) ==true);
-          then:
+                return (id(inspegnimento).state == 1);
+          then:     
             - output.turn_on: led_3d
             - delay: 250ms
             - output.turn_off: led_3d
-
-
+          else:
+            - if:
+                condition:
+                  switch.is_on: relay
+                then:     
+                  - output.turn_on: led_3d
+                else:
+                  - output.turn_off: led_3d
 
 
   - interval: 1000ms
@@ -147,7 +155,6 @@ interval:
                 id(stato_stampante).publish_state("spenta...");          
           else: 
  
-
 switch:
   - platform: gpio
     internal: true
@@ -188,12 +195,9 @@ switch:
     on_turn_on:
       - switch.turn_on: led
       - output.turn_on: led_presa 
-     
     on_turn_off: 
       - switch.turn_off: led
       - output.turn_off: led_presa 
- 
- 
 
   - platform: template
     name: "accendi stampante 3D"
@@ -238,16 +242,15 @@ switch:
                   - if:
                       condition:
                         - lambda: |-
-                            return (id(inspegnimento) ==false);
+                            return (id(inspegnimento).state ==0);
                       then:
-                        - globals.set:
+                        - number.set:
                             id: inspegnimento
-                            value: "true"
+                            value: 1
                       else:
-                        - globals.set:
+                        - number.set:
                             id: inspegnimento
-                            value: "false"
-                        - output.turn_on: led_3d 
+                            value: 0
                   #- lambda: |-
                   #    ESP_LOGD("main", "response: %d", id(klipperON).state);             
                 else: 
@@ -279,7 +282,7 @@ switch:
   #    - switch.turn_off: test 
   #    - lambda: |-
   #        HTTPClient http;
-  #        http.begin("http://KLIPPER_IP/printer/info");
+  #        http.begin("http://3D_PRINTER_IP/printer/info");
   #        http.GET();
   #        id(azz1) = int(http.getString()[6]);
   #        //id(kitchen_state) = http.getString()[36] == 'n';
@@ -296,15 +299,6 @@ switch:
     on_turn_on:
       - if:
           condition:
-            - lambda: |-
-                return (id(inspegnimento) ==true);
-          then:
-            - globals.set:
-                id: inspegnimento
-                value: "false"
-         
-      - if:
-          condition:
               lambda: |-
                 return id(incorso) == false ;     
           then:   
@@ -312,6 +306,9 @@ switch:
                 id(incorso) = true;
             - delay: 
                 seconds: 30
+            - number.set:
+                id: inspegnimento
+                value: 0
             - if:
                 condition:
                     lambda: |-
@@ -321,7 +318,7 @@ switch:
                       id(incorso) = false ;     
                   - switch.turn_off: relay
                   - switch.turn_off: spegnitimer
-            
+                   
     on_turn_off:
       - lambda: |-
           id(incorso) = false ;     
@@ -333,8 +330,6 @@ binary_sensor:
     web_server_sorting_weight: 6
     publish_initial_state: True
     lambda: return (id(relay).state);
-
- 
 
   - platform: template
     id: sensore_spegnimento
@@ -355,7 +350,7 @@ binary_sensor:
     #filters:
     #  - delayed_off: 9ms
     on_click:
-    - min_length: 99ms
+    - min_length: 50ms
       max_length: 999ms
       #click breve
       then:
@@ -374,7 +369,7 @@ binary_sensor:
     #filters:
     #  - delayed_off: 9ms
     on_click:
-    - min_length: 99ms
+    - min_length: 50ms
       max_length: 999ms
       #click breve
       then:
@@ -397,19 +392,17 @@ binary_sensor:
     name: presa
     id: presa
     on_click:
-    - min_length: 99ms
+    - min_length: 50ms
       max_length: 999ms
       #click breve
       then:
         - switch.toggle: presa_laboratorio
 
-
-
 script:
   - id: spegnila
     then:
       - http_request.get:
-          url: "http://KLIPPER_IP/printer/gcode/script?script=spegnistampante"
+          url: "http://3D_PRINTER_IP/printer/gcode/script?script=spegnistampante"
           capture_response: true
           on_response:
             then:
@@ -422,7 +415,7 @@ script:
   - id: checkurl
     then:
       - http_request.get:
-          url: "http://KLIPPER_IP/printer/objects/query?webhooks&virtual_sdcard&print_stats"
+          url: "http://3D_PRINTER_IP/printer/objects/query?webhooks&virtual_sdcard&print_stats"
           capture_response: true
           on_response:
             then:
@@ -484,5 +477,7 @@ script:
            
 
 
+
+ 
 
  
