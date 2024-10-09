@@ -429,43 +429,16 @@ script:
                   JsonObject result_status = doc["result"]["status"]["print_stats"];
                   JsonObject layers = doc["result"]["status"]["print_stats"]["info"];
                   const char* result_status_print_stats_state = result_status["state"]; // "standby"
-                  //const char* filename = result_status["filemane"]; // "standby"
-                  //id(stato_stampante).publish_state(result_status_print_stats_state);
                   ESP_LOGD("main", "stauts: %s", result_status_print_stats_state);
                   JsonObject result_status_virtual_sdcard = doc["result"]["status"]["virtual_sdcard"];
-                  double result_status_virtual_sdcard_progress = result_status_virtual_sdcard["progress"];
-                  //id(percentuale).publish_state(result_status_virtual_sdcard_progress*100 );
-
-                  //result_status_print_stats_state="printing";
                   if (strcmp(result_status_print_stats_state, "printing") == 0)
                   {
-                  //id(file_name).publish_state(filename);
-                  double layerx = layers["current_layer"];
-                  double layert = layers["total_layer"];
-                  //layert=77;
-                  //layerx=1;
-                  char lx[5];
-                  dtostrf(layerx, 1, 0, lx);
-                  char lt[5];
-                  dtostrf(layert, 1, 0, lt);
-                  //DOUBLE TO CHAR ARRAY (char*)
-                  double percento=(result_status_virtual_sdcard_progress * 100 );
-                  //percento=10.5;
-                  char buf[7];
-                  dtostrf(percento, 5, 1, buf);
-                  ////////////////////////////////////////////////////
-                  //Concatenate char arrays (char*) on unique char array (char*)
-                  char out[100];
-                  strcpy(out ,result_status_print_stats_state);
-                  strcat(out, ": ");
-                  strcat(out ,buf);
-                  strcat(out ,"% - ");
-                  strcat(out ,lx);
-                  strcat(out ," di ");
-                  strcat(out ,lt);
-                  strcat(out ," layers");
-                  ////////////////////////////////////////////////////
-                  id(stato_stampante).publish_state(out);
+                  String(stato) = result_status_print_stats_state;
+                  String layerx =  (layers["current_layer"]);
+                  String layert =  (layers["total_layer"]);
+                  double progress = result_status_virtual_sdcard["progress"];
+                  String percento = String(progress * 100 );
+                  id(stato_stampante).publish_state((stato + " " + percento + "%" + " " + layerx + " di " + layert + " layers").c_str());
                   }
                   else
                   {
